@@ -56,7 +56,7 @@ function doPost(e) {
   let nonce = '';
   try {
     if (!e || !e.parameter || typeof e.parameter.payload !== 'string' ||
-        e.parameter.payload.length > 3500) throw new Error('Bad request');
+        e.parameter.payload.length > 300000) throw new Error('Bad request');
     const p = JSON.parse(e.parameter.payload);
     nonce = String(p.nonce || '').slice(0,100).replace(/[^A-Za-z0-9_-]/g,'');
     const props = PropertiesService.getScriptProperties();
@@ -64,6 +64,9 @@ function doPost(e) {
     const sheetId = props.getProperty(SHEET_PROP);
     if (!expected || !sheetId || p.key !== expected) throw new Error('Not authorized');
     if (p.type === 'test') return result_(nonce,true,'Test successful');
+    if (p.type === 'check' || p.type === 'proof') {
+      return activityEvidence_(p, nonce, sheetId);
+    }
     if (p.type !== 'lesson' && p.type !== 'road') throw new Error('Unknown submission type');
     const uid = text_(p.uid,90), lessonId = text_(p.id,35);
     if (!/^m[a-z0-9-]+$/i.test(uid)) throw new Error('Invalid submission ID');
@@ -100,5 +103,63 @@ function doPost(e) {
   } catch (err) {
     console.error('Mekhi sync error: ' + String(err).slice(0,140));
     return result_(nonce,false,'Submission not saved. Check configuration.');
+  }
+}
+
+
+/**
+ * Save a self-reported checklist item or an optional photo of a practical task.
+ * Photos are stored in the spreadsheet owner's PRIVATE Google Drive folder.
+ * The sheet records a Drive link, not a publicly shared image.
+ * The parent's verification field is deliberately never modified.
+ */
+function activityEvidence_(p, nonce, sheetId) {
+  const dateKey = String(p.dateKey || '');
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(dateKey)) throw new Error('Invalid date');
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const stamp = Date.UTC(year, month - 1, day);
+  if (new Date(stamp).toISOString().slice(0, 10) !== dateKey) throw new Error('Invalid date');
+  const first = Date.UTC(2026, 10, 2);
+  const dayIndex = Math.round((stamp - first) / 86400000);
+  if (dayIndex < 0 || dayIndex >= 84) throw new Error('Outside programme');
+  const block = Number(p.block);
+  if (!Number.isInteger(block) || block < 0 || block > 28) throw new Error('Invalid block');
+  const book = SpreadsheetApp.openById(sheetId);
+  const sheet = book.getSheetByName('Daily Register');
+  if (!sheet) throw new Error('Daily Register tab missing');
+  const rowNumber = 2 + dayIndex * 29 + block;
+  if (p.type === 'check') {
+    if (typeof p.checked !== 'boolean') throw new Error('Invalid check state');
+    sheet.getRange(rowNumber, 14).setValue(p.checked);  // N = Student self-check
+    return result_(nonce, true, p.checked ? 'Self-check recorded' : 'Self-check cleared');
+  }
+  const uid = String(p.uid || '');
+  if (!/^m[a-z0-9-]{7,90}$/i.test(uid)) throw new Error('Invalid proof ID');
+  const data = String(p.imageData || '');
+  const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(data);
+  if (!match || match[1].length > 250000) throw new Error('Photo must be compressed JPEG below 180 KB');
+  const imageBytes = Utilities.base64Decode(match[1]);
+  if (imageBytes.length > 180000) throw new Error('Photo too large');
+  // Only create a file after the request has passed all input checks.
+  const props = PropertiesService.getScriptProperties();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    let folderId = props.getProperty('MEKHI_PRIVATE_EVIDENCE_FOLDER');
+    let folder;
+    try { if (folderId) folder = DriveApp.getFolderById(folderId); } catch (ignore) {}
+    if (!folder) {
+      folder = DriveApp.createFolder('Mekhi Studio — Private Activity Evidence');
+      props.setProperty('MEKHI_PRIVATE_EVIDENCE_FOLDER', folder.getId());
+    }
+    const filename = dateKey + '_block-' + String(block + 1).padStart(2,'0') + '_' + uid + '.jpg';
+    const photo = folder.createFile(Utilities.newBlob(imageBytes, 'image/jpeg', filename));
+    // Drive-created files are private by default: no public sharing is applied.
+    sheet.getRange(rowNumber, 20).setValue(photo.getUrl()); // T = private link
+    sheet.getRange(rowNumber, 21).setValue(new Date());     // U = upload time
+    sheet.getRange(rowNumber, 14).setValue(true);           // N = self-check only
+    return result_(nonce, true, 'Photo saved privately for parent review');
+  } finally {
+    lock.releaseLock();
   }
 }
