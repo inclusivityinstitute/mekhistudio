@@ -198,7 +198,7 @@ function renderCareerLab(){return `<h2>Career explorer · Try tasks before choos
 function renderProgress(){const attempts=[...records].reverse(),unique=[...new Set(mainAttempts().map(r=>r.id))].length,road=records.filter(r=>r.type==='road'),quiz=records.filter(r=>r.total>0),avg=quiz.length?Math.round(100*quiz.reduce((s,r)=>s+r.correct/r.total,0)/quiz.length):0,init=mainAttempts().filter(r=>r.startType==='I started myself'||r.startType==='My phone reminder helped me').length;return `${pageHead('MY PROGRESS','What I have practised','Every attempt counts. A quiz result is separate from a real-world skill demonstration.')}<div class="stats"><div class="stat"><strong>⭐ ${localStarSummary().stars}</strong><span>My learning stars</span></div><div class="stat"><strong>${unique}</strong><span>Different lessons tried</span></div><div class="stat"><strong>${road.length}</strong><span>G1 practice sessions</span></div><div class="stat"><strong>${avg}%</strong><span>Average quiz accuracy</span></div></div><div class="section-header"><div><h2>My recent work</h2><p>Results saved on this iPhone or browser. Photo evidence stays private until cloud upload succeeds.</p></div><div class="actions">${button('Export report','export-csv','ghost small')}${button('Share report','share-csv','secondary small')}${button('Parent review','open-parent','ghost small')}${button('Settings','open-settings','ghost small')}</div></div>${attempts.length?`<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Lesson</th><th>Result</th><th>Parent review</th></tr></thead><tbody>${attempts.slice(0,30).map(r=>`<tr><td class="nowrap">${esc(fmtDate(r.date))}</td><td><strong>${esc(r.title)}</strong><br><span class="small muted">${esc(r.id)}</span></td><td>${r.total?`${r.correct}/${r.total}`:'Practice'}</td><td>${esc(r.review||'Not reviewed')}</td></tr>`).join('')}</tbody></table></div></div>`:'<div class="empty"><h3>No lessons submitted on this device yet.</h3><p>Choose a mission, complete the quiz and record your practical activity.</p></div>'}<div class="note"><strong>Stars:</strong> 1 for a passed learning mission, +1 for a self-reported independent start, or 1 for a practical-task photo saved on this device. Parent verification is tracked separately in Google Sheets. Stars are never deducted.</div><div class="note"><strong>Important:</strong> You may have more than one attempt at a lesson. That shows practice and learning, not failure. If you use another device without cloud syncing, its results will not appear here until imported.</div>`}
 function renderParent(){const arr=[...records].reverse(),toReview=arr.filter(r=>r.type==='lesson'&&(!r.review||r.review==='Not reviewed')),started=arr.filter(r=>r.type==='lesson'),prompted=started.filter(r=>r.startType==='A parent/supporter reminded me').length;return `${pageHead('PARENT / SUPPORTER','Learning review','Review actual responses and distinguish written quiz accuracy from demonstrated independence.')}<div class="stats"><div class="stat"><strong>${arr.length}</strong><span>All submissions</span></div><div class="stat"><strong>${toReview.length}</strong><span>Awaiting review</span></div><div class="stat"><strong>${prompted}</strong><span>Started after family prompt</span></div></div><div class="note"><strong>Current setup:</strong> This is an on-device review. Your separate Google Sheet receives updates only after optional cloud sync is configured or a CSV is imported. The parent review here is not access-controlled.</div><div class="section-header"><div><h2>Review submitted work</h2><p>Mark practical skills verified only if you actually observed or checked them.</p></div><div class="actions">${button('Export CSV','export-csv','secondary small')}${button('Settings & sync','open-settings','ghost small')}</div></div>${arr.length?`<div class="lesson-list">${arr.slice(0,80).map(r=>`<div class="card"><div class="label-row"><div><span class="eyebrow">${esc(r.id)} · ${esc(fmtDate(r.date))}</span><h3 style="margin:5px 0">${esc(r.title)}</h3></div><span class="pill ${r.total&&r.correct/r.total>=.8?'pill-green':'pill-amber'}">${r.total?`${r.correct}/${r.total}`:'Practice'}</span></div><p class="small muted">Started: ${esc(r.startType||'Not recorded')} · Help: ${esc(r.support||'Not recorded')} · Not sure: ${r.unsure||0}</p>${r.application?`<p><strong>Student response:</strong> ${safeHtml(r.application)}</p>`:''}${r.notes?`<p><strong>Student note:</strong> ${safeHtml(r.notes)}</p>`:''}${r.evidenceName?`<p class="small"><strong>Local photo:</strong> ${esc(r.evidenceName)} ${button('View photo','view-evidence','ghost small',`data-attempt="${esc(r.uid)}"`)}</p>`:''}<div class="form-grid"><label><span class="label small">Practical verification</span><select class="input review-select" data-attempt="${esc(r.uid)}">${STATUSES.map(x=>`<option ${r.review===x?'selected':''}>${x}</option>`).join('')}</select></label><div style="display:flex;align-items:end">${button('View details','review-details','ghost small',`data-attempt="${esc(r.uid)}"`)}</div></div></div>`).join('')}</div>`:'<div class="empty">No submissions to review yet.</div>'}`}
 function renderSettings(){return `${pageHead('SETTINGS','Make the studio work for your family','Set reading preferences, export a backup, and connect optional automatic reports.')}<div class="grid grid-2"><div class="card"><h2>Reading support</h2><p class="muted">Read lesson text aloud in a calm voice. The speed can be adjusted.</p><label class="label">Voice speed</label><select class="input" id="voiceRate"><option value="0.75" ${speakRate===.75?'selected':''}>Slow</option><option value="0.9" ${speakRate===.9?'selected':''}>Comfortable</option><option value="1" ${speakRate===1?'selected':''}>Normal</option></select><div class="actions" style="margin-top:13px">${button('Test voice','test-voice','secondary')}${button('Stop voice','stop-voice','ghost')}</div></div><div class="card"><h2>Keep my progress</h2><p class="muted">Back up or import submissions. A backup includes lesson answers and notes.</p><div class="actions">${button('Export backup (JSON)','export-json','secondary')}${button('Export dashboard CSV','export-csv','ghost')}</div><label class="label" style="margin-top:18px">Import a saved backup</label><input type="file" id="importBackup" accept=".json,application/json" class="input" style="width:100%"><p class="small muted">Progress is stored on this device. Clearing Safari site data can erase it unless you exported a backup or enabled syncing.</p></div></div>
-<div class="card" style="margin-top:17px"><h2>Automatic reporting to the parent Google Sheet</h2><p>Optional: connect a parent-owned Google Apps Script web endpoint. Only a short lesson result is sent by default: lesson ID, score, date, initiation and support. No passport details, clinical report or photo is transmitted.</p><div class="note warning"><strong>Not yet connected by default.</strong> An adult must deploy the supplied Apps Script once, paste its web-app URL and a long private sync token here, and test a submission. The token is stored on this device, so only use a trusted iPhone/browser.</div><div class="form-grid"><label class="wide"><span class="label">Google Apps Script web app URL</span><input id="scriptUrl" class="input" type="url" style="width:100%" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(config.scriptUrl||'')}"></label><label class="wide"><span class="label">Private sync token</span><input id="syncKey" class="input" type="password" style="width:100%" autocomplete="off" placeholder="Paste the token you set in Apps Script" value="${esc(config.syncKey||'')}"></label><label class="checkbox-wrap wide"><input type="checkbox" id="syncEnabled" ${config.syncEnabled?'checked':''}> Turn on automatic result submission after saving settings</label></div><div class="actions" style="margin-top:16px">${button('Save sync settings','save-sync','teal')}${button('Send a test result','test-sync','secondary')}${button('Retry unsent results','retry-sync','ghost')}</div><div id="syncStatus" class="small muted" style="margin-top:12px">${esc(syncStatusText())}</div></div>
+<div class="card" style="margin-top:17px"><h2>Automatic reporting to the parent Google Sheet</h2><p>Optional: connect a parent-owned Google Apps Script web endpoint. Only a short lesson result is sent by default: lesson ID, score, date, initiation and support. No passport details, clinical report or photo is transmitted.</p><div class="note warning"><strong>Not yet connected by default.</strong> An adult must deploy the supplied Apps Script once, paste its web-app URL and a long private sync token here, and test a submission. The token is stored on this device, so only use a trusted iPhone/browser.</div><div class="form-grid"><label class="wide"><span class="label">Google Apps Script web app URL</span><input id="scriptUrl" class="input" type="url" style="width:100%" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(config.scriptUrl||'')}"></label><label class="wide"><span class="label">Private sync token</span><input id="syncKey" class="input" type="password" style="width:100%" autocomplete="off" placeholder="Paste the token you set in Apps Script" value="${esc(config.syncKey||'')}"></label><label class="checkbox-wrap wide"><input type="checkbox" id="syncEnabled" ${config.syncEnabled?'checked':''}> Turn on automatic result submission after saving settings</label></div><div class="actions" style="margin-top:16px">${button('Save sync settings','save-sync','teal')}${button('Send a test result','test-sync','secondary')}${button('Retry unsent results','retry-sync','ghost')+button('Retry pending photos','retry-proofs','ghost')}</div><div id="syncStatus" class="small muted" style="margin-top:12px">${esc(syncStatusText())}</div></div>
 <div class="card" style="margin-top:17px"><h2>Helpful resources</h2><div class="resource-links"><a target="_blank" rel="noopener" href="${URLS.handbook}">Official Ontario Driver’s Handbook ↗</a><a target="_blank" rel="noopener" href="${URLS.caf}">CAF official joining process ↗</a><a target="_blank" rel="noopener" href="${URLS.marine}">Transport Canada seafarer pathway ↗</a></div><div class="divider"></div>${button('Open parent review','open-parent','ghost')}${button('Print current lesson','print-page','secondary')}</div>`}
 function syncStatusText(){const pending=records.filter(r=>!r.synced).length;return config.syncEnabled?`${pending} unsent result(s) currently on this device.`:'Cloud reporting is off. Use CSV export until it is configured.'}
 function formatClock(sec){sec=Math.max(0,Math.round(sec));return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`}
@@ -268,6 +268,55 @@ async function importJSON(file){if(!file)return;try{const data=JSON.parse(await 
 function reviewRecord(uid,status){const r=records.find(x=>x.uid===uid);if(!r)return;r.review=status;r.synced=false;save();queueSync(r);toast('Review saved.');render()}
 function testForm(){const form=$('#practiceForm');if(!form?.reportValidity())return;const v=Object.fromEntries(new FormData(form));const checks=[['surname',v.surname.trim().toLowerCase()==='ellis','Surname is Ellis.'],['residence',v.residence.trim().toLowerCase()==='canada','Residence is Canada.'],['destination',v.destination.trim().toLowerCase()==='barbados','Destination is Barbados.'],['purpose',v.purpose==='Tourism','A holiday is tourism.'],['days',+v.days===7,'The stay is seven days.'],['dob',v.dob.trim()==='14/05/2004','Date of birth: 14/05/2004.']];let n=checks.filter(c=>c[1]).length;$('#formLabFeedback').innerHTML=`<div class="note ${n<6?'warning':''}"><strong>${n}/6 fields correct.</strong><br>${checks.filter(x=>!x[1]).map(x=>esc(x[2])).join('<br>')||'All six fictional fields are accurate.'}<br>Remember to ask for clarification if a real form is unfamiliar.</div>`}
 function showTool(tool){toolType=['budget','form','airport','roster','emergency','career'].includes(tool)?tool:'budget';navigate('tools',toolType)}
+
+async function prepareProof(file){
+ if(!file||!file.type.startsWith('image/'))throw Error('Choose a photo.');
+ if(file.size>20*1024*1024)throw Error('Choose a smaller photo.');
+ const url=URL.createObjectURL(file),img=new Image();
+ try{await new Promise((ok,bad)=>{img.onload=ok;img.onerror=()=>bad(Error('Cannot open photo'));img.src=url})}
+ finally{URL.revokeObjectURL(url)}
+ const ratio=Math.min(1,760/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+ const c=document.createElement('canvas');c.width=Math.max(1,Math.round((img.naturalWidth||img.width)*ratio));c.height=Math.max(1,Math.round((img.naturalHeight||img.height)*ratio));
+ const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+ let data;for(const q of [.7,.6,.48,.35]){data=c.toDataURL('image/jpeg',q);if(data.length<=235000)break}
+ if(data.length>235000)throw Error('Photo too large. Try a simpler picture.');
+ const raw=atob(data.split(',')[1]),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+ return {data,blob:new Blob([bytes],{type:'image/jpeg'})};
+}
+async function localPhoto(uid){
+ const db=await openEvidenceDB();
+ try{return await new Promise((ok,bad)=>{const r=db.transaction('photos','readonly').objectStore('photos').get(uid);r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error)})}
+ finally{db.close()}
+}
+async function dataUrlFromBlob(blob){return await new Promise((ok,bad)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>bad(r.error);r.readAsDataURL(blob)})}
+async function syncCheck(slot,index,checked,note=''){
+ if(!config.syncEnabled||!config.scriptUrl||!config.syncKey)return;
+ try{await sendPayload({type:'check',dateKey:slot.split('|')[0],block:index,checked,note:String(note||'').slice(0,160)})}
+ catch(err){console.warn('Check not synced:',err.message);toast('Self-check saved on iPhone; cloud update not confirmed.')}
+}
+async function capturePractical(file,slot,index){
+ const {data,blob}=await prepareProof(file),uid=genId();await storeEvidence(blob,uid);
+ proofState[slot]={uid,synced:false,fileName:String(file.name||'Task photo').slice(0,95),date:new Date().toISOString()};
+ plan[slot]=true;save();render();toast('Photo saved on iPhone.');
+ if(!config.syncEnabled||!config.scriptUrl||!config.syncKey)return;
+ try{await sendPayload({type:'proof',uid,dateKey:slot.split('|')[0],block:index,imageData:data});
+  proofState[slot].synced=true;save();render();toast('Photo sent for parent review. ⭐');
+ }catch(err){console.warn('Photo not synced:',err.message);toast('Photo saved locally. Cloud upload needs setup or retry.')}
+}
+async function retryProofs(){
+ if(!config.syncEnabled)return toast('Set up Google sync first.');
+ let success=0,failed=0;
+ for(const [key,p] of Object.entries(proofState)){
+  if(!p||!p.uid||p.synced)continue;
+  try{const blob=await localPhoto(p.uid);if(!blob){failed++;continue}
+   const index=getSchedule().findIndex(s=>s.time===key.split('|')[1]);
+   if(index<0){failed++;continue}
+   await sendPayload({type:'proof',uid:p.uid,dateKey:key.split('|')[0],block:index,imageData:await dataUrlFromBlob(blob)});
+   p.synced=true;success++;
+  }catch(err){console.warn('Retry photo:',err.message);failed++}
+ }
+ save();render();toast(success+' photo(s) uploaded. '+failed+' pending.');
+}
 function syncPayload(record){return{uid:record.uid,date:record.date,id:record.id,type:record.type,title:record.title,area:record.area,correct:record.correct,total:record.total,unsure:record.unsure||0,startType:record.startType||'',support:record.support||'',review:record.review||'Not reviewed'}}
 function isValidScriptUrl(url){return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(String(url||'').trim())}
 let sending=false;
@@ -308,7 +357,26 @@ document.addEventListener('click',async e=>{
  case'tool-career':case'tool-communication':showTool('career');break;
  case'tool-signs':case'tool-junction':navigate('road');break;
  case'toggle-schedule':showSchedule=!showSchedule;render();break;
- case'toggle-slot':plan[el.dataset.slot]=!plan[el.dataset.slot];save();render();break;
+ 
+ case'photo-slot':{
+  const slot=el.dataset.slot,index=Number(el.dataset.index);
+  const picker=document.createElement('input');picker.type='file';picker.accept='image/*';picker.setAttribute('capture','environment');picker.style.display='none';
+  document.body.appendChild(picker);
+  picker.addEventListener('change',async()=>{const file=picker.files&&picker.files[0];picker.remove();if(!file)return;try{await capturePractical(file,slot,index)}catch(err){toast('Photo failed: '+err.message)}});
+  picker.click();break;
+ }
+ case'view-slot-photo':await viewEvidence(el.dataset.uid);break;
+ case'slot-note':{
+  const slot=el.dataset.slot,index=Number(el.dataset.index),note=prompt('What activity did you do and for how many minutes? No selfie needed.',planNotes[slot]||'');
+  if(note!==null){planNotes[slot]=note.slice(0,160);plan[slot]=true;save();render();await syncCheck(slot,index,true,planNotes[slot])}
+  break;
+ }
+ case'retry-proofs':await retryProofs();break;
+ case'toggle-slot':{
+  const slot=el.dataset.slot,index=Number(el.dataset.index),checked=!plan[slot];
+  plan[slot]=checked;save();render();await syncCheck(slot,index,checked,planNotes[slot]||'');break;
+ }
+
  case'slot-open':{let k=el.dataset.kind;if(k==='road')navigate('road');else if(k==='tools')showTool('budget');else if(k==='work')showTool('career');else navigate('learn',chosenId);break}
  case'add-budget':basket.push({name:'',qty:1,price:0});saveBudget();render();break;
  case'remove-budget':basket.splice(+el.dataset.index,1);saveBudget();render();break;
